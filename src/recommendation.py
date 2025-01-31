@@ -4,21 +4,23 @@ from tabulate import tabulate
 from prettytable import PrettyTable
 from sklearn.decomposition import TruncatedSVD
 
+#the function helps to load the dataset. Make sure you have downloaded the dataset :)
 def load_data():
     try:
         ratings_df = pd.read_csv(r'data\ratings.csv')
         movies_df = pd.read_csv(r'data\movies.csv')
         print("Files opened successfully!!")
         return ratings_df, movies_df
+    except FileNotFoundError:
+        print("Dataset not found. Please try again")
     except Exception:
         print("Error occurred. Please try again");
         return (None, None)
-    except FileNotFoundError:
-        print("Dataset not found. Please try again")
+    
         return (None, None)
 
 def dataset_check(ratings_df, movies_df):
-    pd.set_option('display.max_columns', None)  #seeing columns & rows entirely without truncation
+    pd.set_option('display.max_columns', None)  #seeing columns & rows entirely without truncation just to get a sense of it
     pd.set_option('display.max_rows', None)
 
     print("Printing information about the dataset")
@@ -31,10 +33,9 @@ def dataset_check(ratings_df, movies_df):
 
     pd.reset_option('display.max_columns')  #resetting to default display settings
     pd.reset_option('display.max_rows')
-#dataset_check()
 
 def merge_data(ratings_df, movies_df):
-    #merging the datasets and printing the first 10 rows
+    # the function helps in merging the datasets and printing the first few rows (I have set it to 10 but you can change the number)
     merged_df= pd.merge(ratings_df, movies_df, on='movieId')
     print(merged_df.head(10))
 
@@ -46,13 +47,13 @@ def merge_data(ratings_df, movies_df):
     print("Checking for duplicates")
     print(merged_df.duplicated().sum())
 
-    #dropping duplicates
+    #dropping duplicates (to ensure the accracy of the data otherwise it might affect the accuracy of the model)
     merged_df= merged_df.drop_duplicates()
 
     return merged_df.dropna().drop_duplicates()
 
 def create_user_item_matrix(merged_df):
-#creating a user-item matrix 
+    #creating a user-item matrix 
     user_movie_matrix=merged_df.pivot(index='userId', columns='movieId', values='rating');
 
     #print("User-Movie Matrix")
@@ -60,9 +61,8 @@ def create_user_item_matrix(merged_df):
     user_movie_matrix= user_movie_matrix.fillna(0)
     return user_movie_matrix
 
-
 def run_recommendations(user_movie_matrix):
-    svd= TruncatedSVD(n_components=30)
+    svd= TruncatedSVD(n_components=30)      #Decomposing the matrix into a 30*30 matrix to hopefully reduce the noise from data
     user_factors=svd.fit_transform(user_movie_matrix)   #Decomposed user factor
     item_factors=svd.components_    #Decomposed item factors
     print(np.sum(svd.explained_variance_ratio_))
@@ -76,8 +76,8 @@ def run_recommendations(user_movie_matrix):
     predicted_ratings=np.dot(user_factors, item_factors)
     return predicted_ratings
 
-#function to recommend movies (creates a list of recommended movies)
-def recommend_user_movies(user_Id,user_item_matrix, predicted_ratings, top_n):
+#function to recommend users movies ( basically, it creates a list of recommended movies)
+def recommend_user_movies(user_Id,user_item_matrix, predicted_ratings, top_n,movies_df):
     user_ratings=predicted_ratings[user_Id]
     top_n_movies=np.argsort(user_ratings)[-top_n:][::-1]
 
@@ -90,7 +90,6 @@ def recommend_user_movies(user_Id,user_item_matrix, predicted_ratings, top_n):
             genres= movie_data['genres'].values[0]
             predicted_ratings= round(user_ratings[i],1)
             recommend_movies.append([title, genres, predicted_ratings])
-    #return predicted_ratings
     return recommend_movies
 
 def display_recommendation(recommended_movies):
@@ -98,13 +97,12 @@ def display_recommendation(recommended_movies):
     table.field_names=['Movie Name/Title', 'Genres', 'Predicted Rating for You']
     for movie in recommended_movies:
         table.add_row(movie)
-    
     print(table)
 
 def sample_run(user_movie_matrix, predicted_ratings, movies_df):
-    user_Id = 10
-    top_n = 15
-    recommended_movies = recommend_user_movies(user_Id, user_movie_matrix, predicted_ratings, top_n)
+    user_Id = 7
+    top_n = 10
+    recommended_movies = recommend_user_movies(user_Id, user_movie_matrix, predicted_ratings, top_n,movies_df)
     display_recommendation(recommended_movies)
 
 def main():
