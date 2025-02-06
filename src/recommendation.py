@@ -37,11 +37,11 @@ def dataset_check(ratings_df, movies_df):
 def merge_data(ratings_df, movies_df):
     # the function helps in merging the datasets and printing the first few rows (I have set it to 10 but you can change the number)
     merged_df= pd.merge(ratings_df, movies_df, on='movieId')
-    print(merged_df.head(10))
+    #print(merged_df.head(10))
 
-    print("Check for missing values")
-    print(merged_df.isnull().sum())
-    print("Dropping the missing values")
+    #print("Check for missing values")
+    #print(merged_df.isnull().sum())
+    #print("Dropping the missing values")
     merged_df= merged_df.dropna()
 
     print("Checking for duplicates")
@@ -69,8 +69,8 @@ def run_recommendations(user_movie_matrix):
 
     #Reconstructing the matrix
     reconstructed_matrix= np.dot(user_factors,item_factors)
-    print("Reconstructed Matrix: ")
-    print(reconstructed_matrix[:3,:3])
+    #print("Reconstructed Matrix: ")
+    #print(reconstructed_matrix[:3,:3])
 
     #predicting the ratings users might give to the movies they haven't watched
     predicted_ratings=np.dot(user_factors, item_factors)
@@ -105,10 +105,36 @@ def sample_run(user_movie_matrix, predicted_ratings, movies_df):
     recommended_movies = recommend_user_movies(user_Id, user_movie_matrix, predicted_ratings, top_n,movies_df)
     display_recommendation(recommended_movies)
 
+def user_creation():
+    print("Hello there! Welcome to the Movie Recommendation System")
+    user_input1=eval(input("Are you a new user? (1) Yes or (2) No"))
+    if user_input1==1 or userinput=='Yes' or user_input1=='yes' or user_input1=='y':
+        print("Please wait a moment while we create your profile")
+        user_id= print ("Please enter the user ID you want: ")
+        if userid in user_movie_matrix.index:
+            print("User ID already exists. Please try again")
+            user_creation()
+        else:
+            print("User ID created successfully")
+        print("Now please select the genres of movies yo like to watch (max of 3)")
+        genres_in_dataset = movies_df['genres'].str.split('|').explode().unique()
+        print("The following are the genres of movies in the dataset:")
+        table1 = PrettyTable()
+        table1.field_names = ['No.', 'Genres']
+        for i, genre in enumerate(genres_in_dataset, start=1):
+            table1.add_row([i, genre])
+        print(table1)
+
+
+
+
+
 def main():
+
     ratings_df, movies_df = load_data()
     if ratings_df is None or movies_df is None:
         return
+
     merged_df = merge_data(ratings_df, movies_df)
     user_movie_matrix = create_user_item_matrix(merged_df)
     predicted_ratings = run_recommendations(user_movie_matrix)
