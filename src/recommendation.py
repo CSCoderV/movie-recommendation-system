@@ -3,6 +3,7 @@ import numpy as np
 from tabulate import tabulate
 from prettytable import PrettyTable
 from sklearn.decomposition import TruncatedSVD
+import sqlite3
 
 #the function helps to load the dataset. Make sure you have downloaded the dataset :)
 def load_data():
@@ -112,25 +113,44 @@ def sample_run(user_movie_matrix, predicted_ratings, movies_df):
     recommended_movies = recommend_user_movies(user_Id, user_movie_matrix, predicted_ratings, top_n,movies_df)
     display_recommendation(recommended_movies)
 
-def user_creation(user_movie_matrix, predicted_ratings, movies_df):
+def main():
+    ratings_df, movies_df = load_data()
+    if ratings_df is None or movies_df is None:
+        return
+
+    conn = sqlite3.connect('data/users.db')
+    cursor = conn.cursor()
+    cursor.execute('''CREATE TABLE IF NOT EXISTS users (user_id INTEGER PRIMARY KEY)''')
+    conn.commit()
+
+    merged_df = merge_data(ratings_df, movies_df)
+    user_movie_matrix = create_user_item_matrix(merged_df)
+    predicted_ratings = run_recommendations(user_movie_matrix)
+    user_creation(user_movie_matrix, predicted_ratings, movies_df, conn, cursor)
+    conn.close()
+
+def user_creation(user_movie_matrix, predicted_ratings, movies_df, conn, cursor):
     print("Hello there! Welcome to the Movie Recommendation System")
     user_input1 = input("Are you a new user? (1) Yes or (2) No : ")
-    
+
     if user_input1 == "1" or user_input1.lower() == 'yes' or user_input1.lower() == 'y':
         print("Please wait a moment while we create your profile")
         user_id = eval(input("Please enter the user ID you want: "))
 
         if user_id in user_movie_matrix.index:
             print("User ID already exists. Please try again")
-            user_creation(user_movie_matrix, predicted_ratings, movies_df)
+            user_creation(user_movie_matrix, predicted_ratings, movies_df, conn, cursor)
             return
         else:
             print("User ID created successfully")
 
-        user_movie_matrix.loc[user_id] = 0
+        user_movie_matrix.loc[user_id] = user_movie_matrix.mean()
+        user_movie_matrix = user_movie_matrix.sort_index()
         predicted_ratings = run_recommendations(user_movie_matrix)
 
-        # Display genres in dataset
+        cursor.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (user_id,))
+        conn.commit()
+
         genres_in_dataset = list(movies_df['genres'].str.split('|').explode().unique())
         print("The following are the genres of movies in the dataset:")
         table1 = PrettyTable()
@@ -139,12 +159,11 @@ def user_creation(user_movie_matrix, predicted_ratings, movies_df):
             table1.add_row([i, genre])
         print(table1)
 
-        # User selects genres
         user_genres = eval(input("Now please select the genres of movies you like to watch (max of 3), separated by commas: "))
 
         if len(user_genres) > 3:
             print("Hey, please select maximum of 3 genres")
-            user_creation(user_movie_matrix, predicted_ratings, movies_df)
+            user_creation(user_movie_matrix, predicted_ratings, movies_df, conn, cursor)
             return
 
         selected_genres = [genres_in_dataset[i - 1] for i in user_genres if 1 <= i <= len(genres_in_dataset)]
@@ -154,21 +173,19 @@ def user_creation(user_movie_matrix, predicted_ratings, movies_df):
         else:
             print("Thank you for selecting your genres.")
 
-        # Filter movies based on genres
         movies_in_genre = movies_df[movies_df['genres'].apply(lambda x: any(genre in x for genre in selected_genres))]
 
-        # Display filtered movies
         if movies_in_genre.empty:
             print("Sorry, that sees to be a unpopular genre! No movies found for the selected genres. Please try again.")
             return
 
-        displayed_movies = 0  # Initialize displayed_movies before using it
+        displayed_movies = 0
         table2 = PrettyTable()
         table2.field_names = ['No.', 'Movie Name/Title']
 
         for i, movie in enumerate(movies_in_genre['title'].head(10), start=1):
             table2.add_row([displayed_movies + i, movie])
-        
+
         print(table2)
 
         user_movies = eval(input("Now please select the movies you like to watch (max of 5), separated by commas: "))
@@ -176,33 +193,24 @@ def user_creation(user_movie_matrix, predicted_ratings, movies_df):
             print("Sorry. Please retry again (Error: Maximum of 5 movies can be selected)")
         else:
             print("Thank you for selecting the movies you like to watch. Now, we will recommend movies for you. Please wait a moment.")
-            recommended_movies = recommend_user_movies(int(user_id), user_movie_matrix, predicted_ratings, 10, movies_df)
+            recommended_movies = recommend_user_movies(user_movie_matrix.index.get_loc(user_id), user_movie_matrix, predicted_ratings, 10, movies_df)
             display_recommendation(recommended_movies)
     else:
-        user_exsists(user_movie_matrix, predicted_ratings, movies_df)
+        user_exsists(user_movie_matrix, predicted_ratings, movies_df, conn, cursor)
 
+def user_exsists(user_movie_matrix, predicted_ratings, movies_df, conn, cursor):
+    user_id=eval(input("Please enter your user ID: "))
+    cursor.execute("SELECT user_id FROM users WHERE user_id=?", (user_id,))
+    if user_id not in user_movie_matrix.index:
+        user_movie_matrix.loc[user_id] = user_movie_matrix.mean()
+        user_movie_matrix = user_movie_matrix.sort_index()
+        predicted_ratings = run_recommendations(user_movie_matrix)
+    if cursor.fetchone():
+        print("Welcome back! Please wait a moment while we recommend movies for you")
+        recommended_movies = recommend_user_movies(user_movie_matrix.index.get_loc(user_id), user_movie_matrix, predicted_ratings, 10,movies_df)
+        display_recommendation(recommended_movies)
+    else:
+        print("User ID does not exist. Please try again or create a new user ID")
+        user_creation(user_movie_matrix, predicted_ratings, movies_df, conn, cursor)
 
-
-
-def user_exsists(user_movie_matrix, predicted_ratings, movies_df):
-            user_id=eval(input("Please enter your user ID: "))
-            if user_id in user_movie_matrix.index:
-                print("Welcome back! Please wait a moment while we recommend movies for you")
-                recommended_movies = recommend_user_movies(user_id, user_movie_matrix, predicted_ratings, 10,movies_df)
-                display_recommendation(recommended_movies)
-            else:
-                print("User ID does not exist. Please try again or create a new user ID")
-                user_creation()
-
-def main():
-
-    ratings_df, movies_df = load_data()
-    if ratings_df is None or movies_df is None:
-        return
-
-    merged_df = merge_data(ratings_df, movies_df)
-    user_movie_matrix = create_user_item_matrix(merged_df)
-    predicted_ratings = run_recommendations(user_movie_matrix)
-    #sample_run(user_movie_matrix, predicted_ratings, movies_df)    #this is a sample run in case you want to see how it works
-    user_creation(user_movie_matrix, predicted_ratings, movies_df)
 main()
