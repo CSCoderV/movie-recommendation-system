@@ -1,9 +1,4 @@
-ronitsabhaya@ronitsabhaya movie-recommendation-system % pip3 -r install requirements.txt
-Traceback (most recent call last):
-  File "/Library/Frameworks/Python.framework/Versions/3.13/bin/pip3", line 5, in <module>
-    from pip._internal.cli.main import main
-ModuleNotFoundError: No module named 'pip'
-ronitsabhaya@ronitsabhaya movie-recommendation-system # movie-recommendation-system
+# movie-recommendation-system
 **Data Attribution:**  
 This project uses publicly available datasets from Kaggle
 
